@@ -41,6 +41,7 @@ extern crate arrayvec;
 
 pub mod parser;
 pub mod lexer;
+pub mod stateful_parser;
 mod helpers;
 
 pub use lexer::Span;
