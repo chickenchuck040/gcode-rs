@@ -76,6 +76,13 @@ impl<I> Tokenizer<I>
                        })
                 }
 
+                '\n' => {
+                    Ok(Token {
+                           kind: TokenKind::EndOfLine,
+                           span: span,
+                       })
+                }
+
                 other => Err(Error::UnknownToken(other, span)),
             };
 
@@ -263,6 +270,7 @@ pub enum TokenKind {
 
     Minus,
     Percent,
+    EndOfLine,
 
     /// An escape hatch which matches any other single alphabetic character.
     ///
