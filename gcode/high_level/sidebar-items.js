@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["GCode",""],["Line",""],["MCode",""]],"fn":[["type_check","Convert the loosely typed `low_level::Line` into its more strongly typed representation."]],"struct":[["Point",""]]});

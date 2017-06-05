@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `gcode` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, gcode">
+
+    <title>gcode - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'gcode', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>gcode</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/gcode/lib.rs.html#1-134' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>A crate for parsing gcodes without relying on <code>std</code>.</p>
+
+<p>The crate uses a pipeline pattern and iterators to implement a
+zero-allocation lexer and parser.</p>
+
+<h1 id='pipeline-stages' class='section-header'><a href='#pipeline-stages'>Pipeline Stages</a></h1>
+<p>The data goes through a series of transformations before it arrives at its
+final strongly-typed representation. Each transform uses the <a href="https://doc.rust-lang.org/nightly/core/iter/trait.Iterator.html"><code>Iterator</code></a>
+trait to lazily evaluate commands, so if you aren&#39;t reading from local
+memory (i.e. an attached SD card), if you&#39;re reading data from a serial
+port or other network device you&#39;ll probably want to wrap it in some sort
+of buffered reader.</p>
+
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Transform</th>
+<th>Transformer</th>
+<th>Description</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>1</td>
+<td>char -&gt; <a href="lexer/struct.Token.html"><code>Token</code></a></td>
+<td><a href="lexer/struct.Tokenizer.html"><code>Tokenizer</code></a></td>
+<td>Lexical analysis (tokenizing)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Token -&gt; <a href="low_level/enum.Line.html"><code>low_level::Line</code></a></td>
+<td><a href="parser/struct.BasicParser.html"><code>BasicParser</code></a></td>
+<td>Initial parsing</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Line -&gt; <a href="high_level/enum.Line.html"><code>high_level::Line</code></a></td>
+<td><a href="high_level/fn.type_check.html"><code>type_check()</code></a></td>
+<td>Type-checking and strong typing</td>
+</tr>
+</tbody>
+</table>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
+<p>You can manually exercise the entire pipeline as follows:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">gcode</span>::{<span class="ident">Tokenizer</span>, <span class="ident">BasicParser</span>, <span class="ident">type_check</span>};
+
+<span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="string">&quot;G00 X10.0 Y20.0; G00 Z-10.0; G01 X55.2 Y-32.0 F500;&quot;</span>;
+
+<span class="comment">// Construct a tokenizer and pass it our source code.</span>
+<span class="kw">let</span> <span class="ident">lexer</span> <span class="op">=</span> <span class="ident">Tokenizer</span>::<span class="ident">new</span>(<span class="ident">src</span>.<span class="ident">chars</span>());
+
+<span class="comment">// Ignore any errors we encounter to get a stream of `Token`s.</span>
+<span class="kw">let</span> <span class="ident">tokens</span> <span class="op">=</span> <span class="ident">lexer</span>.<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">t</span><span class="op">|</span> <span class="ident">t</span>.<span class="ident">ok</span>());
+
+<span class="comment">// Construct a parser which takes in the tokens.</span>
+<span class="kw">let</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">BasicParser</span>::<span class="ident">new</span>(<span class="ident">tokens</span>);
+
+<span class="comment">// Skip all parsing errors and then apply type checking, skipping errors again</span>
+<span class="kw">let</span> <span class="ident">lines</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">l</span><span class="op">|</span> <span class="ident">l</span>.<span class="ident">ok</span>())
+                  .<span class="ident">map</span>(<span class="op">|</span><span class="ident">l</span><span class="op">|</span> <span class="ident">type_check</span>(<span class="ident">l</span>))
+                  .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">l</span><span class="op">|</span> <span class="ident">l</span>.<span class="ident">ok</span>());
+
+<span class="kw">for</span> <span class="ident">line</span> <span class="kw">in</span> <span class="ident">lines</span> {
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">line</span>);
+}</pre>
+
+<p>Alternatively, using the <code>nightly</code> feature flag, you can just use the
+<code>parse()</code> function.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">gcode</span>::<span class="ident">parse</span>;
+
+<span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="string">&quot;G00 X10.0 Y20.0; G00 Z-10.0; G01 X55.2 Y-32.0 F500;&quot;</span>;
+
+<span class="kw">for</span> <span class="ident">line</span> <span class="kw">in</span> <span class="ident">parse</span>(<span class="ident">src</span>.<span class="ident">chars</span>()) {
+    <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">line</span>);
+}</pre>
+
+<h1 id='feature-flags' class='section-header'><a href='#feature-flags'>Feature Flags</a></h1>
+<p>At the moment only one feature flag is available.</p>
+
+<ul>
+<li><code>nightly</code> enables the <code>parse</code> function. This is a convenience function
+which will convert a stream of <code>char</code>s into a stream of
+<a href="high_level/enum.Line.html"><code>high_level::Line</code></a>s. It relies on <code>conservative_impl_trait</code>.</li>
+</ul>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub use lexer::<a class="struct" href="../gcode/lexer/struct.Tokenizer.html" title="struct gcode::lexer::Tokenizer">Tokenizer</a>;</code></td></tr><tr><td><code>pub use lexer::<a class="struct" href="../gcode/lexer/struct.Span.html" title="struct gcode::lexer::Span">Span</a>;</code></td></tr><tr><td><code>pub use low_level::<a class="struct" href="../gcode/low_level/struct.BasicParser.html" title="struct gcode::low_level::BasicParser">BasicParser</a>;</code></td></tr><tr><td><code>pub use high_level::<a class="fn" href="../gcode/high_level/fn.type_check.html" title="fn gcode::high_level::type_check">type_check</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="high_level/index.html"
+                                  title='mod gcode::high_level'>high_level</a></td>
+                           <td class='docblock-short'>
+                                <p>The high level interpreting of parsed Commands as their particular G and M
+codes and applying strong typing to their arguments.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="lexer/index.html"
+                                  title='mod gcode::lexer'>lexer</a></td>
+                           <td class='docblock-short'>
+                                <p>A module for turning raw gcode into tokens to be processed by the parser.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="low_level/index.html"
+                                  title='mod gcode::low_level'>low_level</a></td>
+                           <td class='docblock-short'>
+                                <p>The first stage of parsing which turns tokens into a basic gcode
+representation.</p>
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.Error.html"
+                                  title='enum gcode::Error'>Error</a></td>
+                           <td class='docblock-short'>
+                                <p>The error type.</p>
+                           </td>
+                       </tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.Result.html"
+                                  title='type gcode::Result'>Result</a></td>
+                           <td class='docblock-short'>
+                                <p>An alias for the <code>Result</code> type.</p>
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "gcode";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

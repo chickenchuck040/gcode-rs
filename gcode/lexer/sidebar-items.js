@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["TokenKind","A `gcode` token."]],"struct":[["Span","A representation of a position in source code."],["Token","A gcode Token."],["Tokenizer","A zero-allocation tokenizer."]]});
